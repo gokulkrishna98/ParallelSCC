@@ -3,12 +3,72 @@
 #include <unistd.h>
 #include <bits/stdc++.h>
 
+#define UNVISITED -1
+
 char *file_path = nullptr;
 int thread_count = 1;
 
 int num_nodes = 0;
 int num_edges = 0;
 std::vector<std::vector<int>> graph;
+std::vector<std::vector<int>> sccs;
+
+int scc_count = 0;
+int* ids;
+int* low;
+bool* onStack;
+std::stack<int> stack;
+int id = 0;
+
+void initValues(){
+    ids = (int*) calloc(num_nodes, sizeof(int));
+    low = (int*) calloc(num_nodes, sizeof(int));
+    onStack = (bool*) calloc(num_nodes, sizeof(bool));
+
+    for(int i=0; i<num_nodes; i++){
+        ids[i] = UNVISITED;
+    }
+}
+
+void dfs(int x){
+    stack.push(x);
+    onStack[x] = true;
+    ids[x] = low[x] = id++;
+
+    for(int i=0; i<graph[x].size(); i++){
+        int to = graph[x][i];
+        if(ids[to] == UNVISITED){
+            dfs(to);
+        }
+        if(onStack[to]){
+            low[x] = std::min(low[x], low[to]);
+        }
+    }
+
+    if(ids[x] == low[x]){
+        std::vector<int> scc;
+        while(stack.top() != x){
+            int node = stack.top(); stack.pop();
+            onStack[node] = false;
+            scc.push_back(node);
+        }
+        int node = stack.top(); stack.pop();
+        scc.push_back(node);
+        onStack[node] = false;
+
+        sccs.push_back(scc);
+        scc_count++;
+    }
+    return;
+}
+
+void findScc(){
+    for(int i=0; i<num_nodes; i++){
+        if(ids[i] == UNVISITED){
+            dfs(i);
+        }
+    }
+}
 
 void readGraph(){
     if(file_path == nullptr){
@@ -36,7 +96,21 @@ void readGraph(){
 
 void printGraph(){
     for(int i=0; i<num_nodes; i++){
-        printf("%d -> size %ld\n", i, graph[i].size());
+        printf("node %d: ", i);
+        for(int j=0; j<graph[i].size(); j++){
+            printf("%d, ", graph[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+void printScc(){
+    for(int i=0; i<sccs.size(); i++){
+        printf("scc %d: ", i);
+        for(int j=0; j<sccs[i].size(); j++){
+            printf("%d ", sccs[i][j]);
+        }
+        printf("\n");
     }
 }
 
@@ -75,8 +149,12 @@ int main(int argc, char** argv){
             thread_count);
 
     readGraph();
+    // printGraph();
+    initValues();
+    findScc();
+    printScc();
 
-    printGraph();
+    printf("scc count: %d\n", scc_count);
 
     return 0;
 }
