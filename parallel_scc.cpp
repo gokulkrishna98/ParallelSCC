@@ -4,24 +4,51 @@
 #include <omp.h>
 #include <bits/stdc++.h>
 
+// #include <trajan_seq.h>
+
+
 #define UNVISITED -1
 
 char *file_path = nullptr;
 int thread_count = 1;
-
-int num_nodes = 0;
-int num_edges = 0;
-std::vector<std::vector<int>> graph;
-std::vector<std::vector<int>> sccs;
-
 int scc_count = 0;
-int* ids;
-int* low;
-bool* onStack;
-std::stack<int> stack;
-int id = 0;
 
-void initValues(){
+/***************************************************************************
+**************   TRAJAN SEQUENTIAL IMPLEMENTATION   ************************
+****************************************************************************/
+
+class TrajanSeq {
+    int num_nodes = 0;
+    int num_edges = 0;
+    std::vector<std::vector<int>> graph;
+    std::vector<std::vector<int>> sccs;
+
+    int* ids;
+    int* low;
+    bool* onStack;
+    std::stack<int> stack;
+    int id = 0;
+
+    int scc_count = 0;
+public:
+    void initValues();
+    void readGraph(char* filePath);
+    void dfs(int x);
+    void findScc();
+    void freeValues();
+    std::vector<std::vector<int>> getGraph();
+    std::vector<std::vector<int>> getSccs();
+};
+
+std::vector<std::vector<int>> TrajanSeq::getGraph(){
+    return graph;
+}
+
+std::vector<std::vector<int>> TrajanSeq::getSccs(){
+    return sccs;
+}
+
+void TrajanSeq::initValues(){
     ids = (int*) calloc(num_nodes, sizeof(int));
     low = (int*) calloc(num_nodes, sizeof(int));
     onStack = (bool*) calloc(num_nodes, sizeof(bool));
@@ -30,12 +57,6 @@ void initValues(){
         ids[i] = UNVISITED;
     }
 }
-
-class TrajanSeq {
-public:
-    void dfs(int x);
-    void findScc();
-};
 
 void TrajanSeq::dfs(int x){
     stack.push(x);
@@ -77,7 +98,7 @@ void TrajanSeq::findScc(){
     }
 }
 
-void readGraph(){
+void TrajanSeq::readGraph(char* file_path){
     if(file_path == nullptr){
         printf("File path is NULL\n");
         exit(EXIT_FAILURE);
@@ -101,8 +122,87 @@ void readGraph(){
 	}
 }
 
-void printGraph(){
-    for(int i=0; i<num_nodes; i++){
+void TrajanSeq::freeValues(){
+    free(ids);
+    free(low);
+    free(onStack);
+
+    ids = nullptr;
+    low = nullptr;
+    onStack = nullptr;
+}
+
+/***************************************************************************
+*****************    FORWARD-BACKWARD ALGORITHM    *************************
+****************************************************************************/
+
+class FB {
+    int num_nodes = 0;
+    int num_edges = 0;
+    int scc_count = 0;
+
+    std::vector<std::vector<int>> graph;
+    std::vector<std::vector<int>> forward;
+    std::vector<std::vector<int>> backward;
+
+    std::vector<std::vector<int>> sccs;
+public:
+    void initValues();
+    void readGraph(char* file_path);
+    void findScc();
+    std::vector<std::vector<int>> getGraph();
+    std::vector<std::vector<int>> getSccs();
+};
+
+void FB::initValues(){
+    //nothing to do
+    return;
+}
+
+void FB::readGraph(char* file_path){
+    if(file_path == nullptr){
+        printf("File path is NULL\n");
+        exit(EXIT_FAILURE);
+    }
+
+    FILE *fptr = fopen(file_path, "r");
+    if(fptr == nullptr){
+        fprintf(stderr, "error in reading graph file\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(fscanf(fptr, "#Nodes: %d Edges: %d", &num_nodes, &num_edges) <= 0){
+		printf("Could not read the number of nodes \n");	
+		exit(0);
+	}
+
+    graph = std::vector<std::vector<int>>(num_nodes);
+    forward = std::vector<std::vector<int>>(num_nodes);
+    backward = std::vector<std::vector<int>>(num_nodes);
+
+    int u, v;
+    while(fscanf(fptr, "%d %d", &u, &v) > 0 ){
+		graph[u].push_back(v);
+        forward[u].push_back(v);
+        backward[v].push_back(u);
+	}
+}
+
+void FB::findScc(){
+    // remove nodes with only outgoing edges and only incoming edges;
+    return;
+}
+
+std::vector<std::vector<int>> FB::getGraph(){
+    return graph;
+}
+
+std::vector<std::vector<int>> FB::getSccs(){
+    return sccs;
+}
+
+void printGraph(std::vector<std::vector<int>> graph){
+    for(int i=0; i<graph.size(); i++){
         printf("node %d: ", i);
         for(int j=0; j<graph[i].size(); j++){
             printf("%d, ", graph[i][j]);
@@ -111,7 +211,7 @@ void printGraph(){
     }
 }
 
-void printScc(){
+void printScc(std::vector<std::vector<int>> sccs){
     for(int i=0; i<sccs.size(); i++){
         printf("scc %d: ", i);
         for(int j=0; j<sccs[i].size(); j++){
@@ -120,7 +220,6 @@ void printScc(){
         printf("\n");
     }
 }
-
 
 int main(int argc, char** argv){
     int opt;
@@ -151,19 +250,19 @@ int main(int argc, char** argv){
         }
     }
     
-    printf("data read:\n file path: %s\n thread_count: %d\n", 
+    printf("file path: %s\nthread_count: %d\n\n", 
             file_path, 
             thread_count);
 
-    readGraph();
-    // printGraph();
-    initValues();
-
     //TODO: get argument for the method, and choose the class
     TrajanSeq method;
-
+    method.readGraph(file_path);
+    method.initValues();
     method.findScc();
-    printScc();
+    method.freeValues();
+
+    auto sccs = method.getSccs();
+    printScc(sccs);
 
     printf("scc count: %d\n", scc_count);
 
