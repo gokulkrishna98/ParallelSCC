@@ -1,4 +1,4 @@
-trajan_seq: trajan_seq.cpp
-	g++-11 -o trajan_seq -g trajan_seq.cpp -I.
+parallel_scc: parallel_scc.cpp
+	g++-11 -o parallel_scc -g parallel_scc.cpp -I.
 clean:
 	rm -f linker *~

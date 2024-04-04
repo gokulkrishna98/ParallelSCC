@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <omp.h>
 #include <bits/stdc++.h>
 
 #define UNVISITED -1
@@ -30,7 +31,13 @@ void initValues(){
     }
 }
 
-void dfs(int x){
+class TrajanSeq {
+public:
+    void dfs(int x);
+    void findScc();
+};
+
+void TrajanSeq::dfs(int x){
     stack.push(x);
     onStack[x] = true;
     ids[x] = low[x] = id++;
@@ -62,7 +69,7 @@ void dfs(int x){
     return;
 }
 
-void findScc(){
+void TrajanSeq::findScc(){
     for(int i=0; i<num_nodes; i++){
         if(ids[i] == UNVISITED){
             dfs(i);
@@ -151,7 +158,11 @@ int main(int argc, char** argv){
     readGraph();
     // printGraph();
     initValues();
-    findScc();
+
+    //TODO: get argument for the method, and choose the class
+    TrajanSeq method;
+
+    method.findScc();
     printScc();
 
     printf("scc count: %d\n", scc_count);
