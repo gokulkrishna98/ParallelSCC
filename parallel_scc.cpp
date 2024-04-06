@@ -241,16 +241,13 @@ void print_graph(std::vector<int> g, std::string name){
 }
 
 void FB::findScc(std::vector<int> graph){
-    if(graph.size() == 0){
-        return;
-    }
-
     // print_graph(graph, "graph");
     for(int i=0; i<graph.size(); i++){
-        if(in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0){
+        // this visit check is a hotfix, need to debug
+        if(vis[graph[i]] == UNVISITED && 
+          (in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0)){
             // printf("debug trim: %d\n", graph[i]);
             vis[graph[i]] = 1;
-            scc_count++;
             sccs.push_back({ graph[i] });
         }
     }
@@ -264,14 +261,9 @@ void FB::findScc(std::vector<int> graph){
 
     // getting node after trim
     int x = -1;
-    for(int i=0; i<graph.size(); i++){
-        if(vis[graph[i]] == UNVISITED){
-            x = graph[i];
-            break;
-        }   
-    }
-
-    if(x < 0){
+    if(!graph.empty()){
+        x = graph[0];
+    }else{
         return;
     }
 
@@ -281,6 +273,7 @@ void FB::findScc(std::vector<int> graph){
     for(auto it: fw){
         vis[it] = UNVISITED;
     }
+    
     auto bw = dfs(backward, x);
     for(auto it: bw){
         vis[it] = UNVISITED;
@@ -297,13 +290,11 @@ void FB::findScc(std::vector<int> graph){
     std::set_intersection(fw.begin(), fw.end(), 
                           bw.begin(), bw.end(),
                           std::back_inserter(scc));
-
     for(auto it: scc){
         vis[it] = 1;
     }
 
     if(!scc.empty()){
-        scc_count++;
         sccs.push_back(scc);
     }
 
