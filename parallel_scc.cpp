@@ -141,6 +141,7 @@ class FB {
     std::vector<std::vector<int>> sccs;
 
     int* vis = nullptr;
+    int* color = nullptr;
 public:
     int num_nodes = 0;
     int num_edges = 0;
@@ -151,7 +152,7 @@ public:
     void freeValues();
 
     std::vector<int> dfs(std::vector<std::vector<int>> &g, int x);
-    void findScc(std::vector<int> graph);
+    void findScc(std::vector<int> &graph, int depth);
 
     int in_degree(int x);
     int out_degree(int x);
@@ -161,6 +162,7 @@ public:
 
 void FB::initValues(){
     vis = (int*) calloc(num_nodes, sizeof(int));
+    color = (int*) calloc(num_nodes, sizeof(int));
 
     for(int i=0; i<num_nodes; i++){
         vis[i] = UNVISITED;
@@ -169,7 +171,9 @@ void FB::initValues(){
 
 void FB::freeValues(){
     free(vis);
+    free(color);
     vis = nullptr;
+    color = nullptr;
 }
 
 void FB::readGraph(char* file_path){
@@ -189,34 +193,33 @@ void FB::readGraph(char* file_path){
 		exit(0);
 	}
 
-    graph = std::vector<std::vector<int>>(num_nodes);
     forward = std::vector<std::vector<int>>(num_nodes);
     backward = std::vector<std::vector<int>>(num_nodes);
 
+    initValues();
+
     int u, v;
     while(fscanf(fptr, "%d %d", &u, &v) > 0 ){
-		graph[u].push_back(v);
         forward[u].push_back(v);
         backward[v].push_back(u);
 	}
 }
 
 int FB::in_degree(int x){
-    int in_nodes = 0;
     for(int i=0; i<backward[x].size(); i++){
-        if(vis[backward[x][i]] == UNVISITED)
-            in_nodes++;
+        if(vis[backward[x][i]] == UNVISITED){
+            return 1;
+        }
     }
-    return in_nodes;
+    return 0;
 }
 
 int FB::out_degree(int x){
-    int out_nodes = 0;
     for(int i=0; i<forward[x].size(); i++){
         if(vis[forward[x][i]] == UNVISITED)
-            out_nodes++;
+            return 1;
     }
-    return out_nodes;
+    return 0;
 }
 
 std::vector<int> FB::dfs(std::vector<std::vector<int>> &g, int x){
@@ -241,35 +244,32 @@ void print_graph(std::vector<int> g, std::string name){
     return;
 }
 
-void FB::findScc(std::vector<int> graph){
-    // print_graph(graph, "graph");
+void FB::findScc(std::vector<int> &graph, int depth = 0){
+    int index = sccs.size();
+
+    #pragma omp parallel for num_threads(thread_count)
     for(int i=0; i<graph.size(); i++){
-        // this visit check is a hotfix, need to debug
-        if(vis[graph[i]] == UNVISITED && 
-          (in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0)){
-            // printf("debug trim: %d\n", graph[i]);
+        if(vis[graph[i]] == UNVISITED &&
+           (in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0)){
             vis[graph[i]] = 1;
-            sccs.push_back({ graph[i] });
+            #pragma omp critical
+            sccs.push_back({graph[i]});
         }
     }
 
+    // graph - trim
     std::vector<int> temp;
     for(auto it: graph){
         if(vis[it] == UNVISITED)
             temp.push_back(it);
     }
     graph = temp;
+    if(graph.empty()) return;
 
     // getting node after trim
-    int x = -1;
-    if(!graph.empty()){
-        x = graph[0];
-    }else{
-        return;
-    }
+    int x = graph[0];
 
-    // printf("x: %d\n", x);
-
+    // need to optimize this
     auto fw = dfs(forward, x);
     for(auto it: fw){
         vis[it] = UNVISITED;
@@ -284,9 +284,6 @@ void FB::findScc(std::vector<int> graph){
     
     sort(fw.begin(), fw.end());
     sort(bw.begin(), bw.end());
-
-    // print_graph(fw, "fw");
-    // print_graph(bw, "bw");
 
     std::set_intersection(fw.begin(), fw.end(), 
                           bw.begin(), bw.end(),
@@ -315,16 +312,32 @@ void FB::findScc(std::vector<int> graph){
                         union_graph.begin(), union_graph.end(),
                         std::back_inserter(graph3));
 
+    if(depth == 4){
+        #pragma omp parallel 
+        {
+            #pragma omp single 
+            {
 
-    // print_graph(scc, "scc");
-    // print_graph(graph1, "graph1");
-    // print_graph(graph2, "graph2");
-    // print_graph(graph3, "graph3");
-    // printf("--------------------\n");
+                #pragma omp task shared(graph1)
+                findScc(graph1, depth+1);
 
-    findScc(graph1);
-    findScc(graph2);
-    findScc(graph3);
+                #pragma omp task shared(graph2)
+                findScc(graph2, depth+1);
+
+                #pragma omp task shared(graph2)
+                findScc(graph3, depth+1);  
+            }
+        }
+    }else{
+        findScc(graph1, depth+1);
+        findScc(graph2, depth+1);
+        findScc(graph3, depth+1);  
+    }
+
+    // findScc(graph1, depth+1);
+    // findScc(graph2, depth+1);
+    // findScc(graph3, depth+1); 
+
 
     return;
 }
@@ -406,12 +419,15 @@ int main(int argc, char** argv){
     }else if(algo == "fb"){
         FB method;
         method.readGraph(file_path);
-        method.initValues();
+        // method.initValues();
     
         std::vector<int> graph(method.num_nodes);
         for(int i=0; i<method.num_nodes; i++){
             graph[i] = i;
         }
+
+        omp_set_nested(1);
+
 
         method.findScc(graph);
         auto sccs = method.getSccs();
