@@ -4,14 +4,11 @@
 #include <omp.h>
 #include <bits/stdc++.h>
 
-// #include <trajan_seq.h>
-
 
 #define UNVISITED -1
 
 char *file_path = nullptr;
 int thread_count = 1;
-int scc_count = 0;
 
 /***************************************************************************
 **************   TRAJAN SEQUENTIAL IMPLEMENTATION   ************************
@@ -137,26 +134,41 @@ void TrajanSeq::freeValues(){
 ****************************************************************************/
 
 class FB {
+    std::vector<std::vector<int>> graph;
+    std::vector<std::vector<int>> forward;
+    std::vector<std::vector<int>> backward;
+    std::vector<std::vector<int>> sccs;
+
+    int* vis = nullptr;
+public:
     int num_nodes = 0;
     int num_edges = 0;
     int scc_count = 0;
 
-    std::vector<std::vector<int>> graph;
-    std::vector<std::vector<int>> forward;
-    std::vector<std::vector<int>> backward;
-
-    std::vector<std::vector<int>> sccs;
-public:
     void initValues();
     void readGraph(char* file_path);
-    void findScc();
+    void freeValues();
+
+    std::vector<int> dfs(std::vector<std::vector<int>> &g, int x);
+    void findScc(std::vector<int> graph);
+
+    int in_degree(int x);
+    int out_degree(int x);
     std::vector<std::vector<int>> getGraph();
     std::vector<std::vector<int>> getSccs();
 };
 
 void FB::initValues(){
-    //nothing to do
-    return;
+    vis = (int*) calloc(num_nodes, sizeof(int));
+
+    for(int i=0; i<num_nodes; i++){
+        vis[i] = UNVISITED;
+    }
+}
+
+void FB::freeValues(){
+    free(vis);
+    vis = nullptr;
 }
 
 void FB::readGraph(char* file_path){
@@ -188,8 +200,140 @@ void FB::readGraph(char* file_path){
 	}
 }
 
-void FB::findScc(){
-    // remove nodes with only outgoing edges and only incoming edges;
+int FB::in_degree(int x){
+    int in_nodes = 0;
+    for(int i=0; i<backward[x].size(); i++){
+        if(vis[backward[x][i]] == UNVISITED)
+            in_nodes++;
+    }
+    return in_nodes;
+}
+
+int FB::out_degree(int x){
+    int out_nodes = 0;
+    for(int i=0; i<forward[x].size(); i++){
+        if(vis[forward[x][i]] == UNVISITED)
+            out_nodes++;
+    }
+    return out_nodes;
+}
+
+std::vector<int> FB::dfs(std::vector<std::vector<int>> &g, int x){
+    std::vector<int> ans;
+    vis[x] = 1;
+    ans.push_back(x);
+    for(int i=0; i<g[x].size(); i++){
+        if(vis[g[x][i]] == UNVISITED){
+            auto t = dfs(g, g[x][i]);
+            ans.insert(ans.end(), t.begin(), t.end());
+        }
+    }
+    return ans;
+}
+
+void print_graph(std::vector<int> g, std::string name){
+    printf("%s: ", name.c_str());
+    for(auto it: g){
+        printf("%d, ", it);
+    }
+    printf("\n");
+    return;
+}
+
+void FB::findScc(std::vector<int> graph){
+    if(graph.size() == 0){
+        return;
+    }
+
+    // print_graph(graph, "graph");
+    for(int i=0; i<graph.size(); i++){
+        if(in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0){
+            // printf("debug trim: %d\n", graph[i]);
+            vis[graph[i]] = 1;
+            scc_count++;
+            sccs.push_back({ graph[i] });
+        }
+    }
+
+    std::vector<int> temp;
+    for(auto it: graph){
+        if(vis[it] == UNVISITED)
+            temp.push_back(it);
+    }
+    graph = temp;
+
+    // getting node after trim
+    int x = -1;
+    for(int i=0; i<graph.size(); i++){
+        if(vis[graph[i]] == UNVISITED){
+            x = graph[i];
+            break;
+        }   
+    }
+
+    if(x < 0){
+        return;
+    }
+
+    // printf("x: %d\n", x);
+
+    auto fw = dfs(forward, x);
+    for(auto it: fw){
+        vis[it] = UNVISITED;
+    }
+    auto bw = dfs(backward, x);
+    for(auto it: bw){
+        vis[it] = UNVISITED;
+    }
+
+    std::vector<int> scc, graph1, graph2, graph3, union_graph;
+    
+    sort(fw.begin(), fw.end());
+    sort(bw.begin(), bw.end());
+
+    // print_graph(fw, "fw");
+    // print_graph(bw, "bw");
+
+    std::set_intersection(fw.begin(), fw.end(), 
+                          bw.begin(), bw.end(),
+                          std::back_inserter(scc));
+
+    for(auto it: scc){
+        vis[it] = 1;
+    }
+
+    if(!scc.empty()){
+        scc_count++;
+        sccs.push_back(scc);
+    }
+
+    std::set_union(fw.begin(), fw.end(),
+                    bw.begin(), bw.end(),
+                    std::back_inserter(union_graph));
+
+    std::set_difference(fw.begin(), fw.end(),
+                        scc.begin(), scc.end(),
+                        std::back_inserter(graph1));
+
+    std::set_difference(bw.begin(), bw.end(),
+                        scc.begin(), scc.end(),
+                        std::back_inserter(graph2));
+
+    std::set_difference(graph.begin(), graph.end(),
+                        union_graph.begin(), union_graph.end(),
+                        std::back_inserter(graph3));
+
+
+    // print_graph(scc, "scc");
+    // print_graph(graph1, "graph1");
+    // print_graph(graph2, "graph2");
+    // print_graph(graph3, "graph3");
+    // printf("--------------------\n");
+
+    findScc(graph1);
+    findScc(graph2);
+    findScc(graph3);
+
     return;
 }
 
@@ -254,17 +398,27 @@ int main(int argc, char** argv){
             file_path, 
             thread_count);
 
-    //TODO: get argument for the method, and choose the class
+    // TODO: get argument for the method, and choose the class
     TrajanSeq method;
     method.readGraph(file_path);
     method.initValues();
     method.findScc();
     method.freeValues();
 
+    // FB method;
+    // method.readGraph(file_path);
+    // method.initValues();
+    
+    // std::vector<int> graph(method.num_nodes);
+    // for(int i=0; i<method.num_nodes; i++){
+    //     graph[i] = i;
+    // }
+
+    // method.findScc(graph);
     auto sccs = method.getSccs();
     printScc(sccs);
 
-    printf("scc count: %d\n", scc_count);
+    printf("scc count: %ld\n", sccs.size());
 
     return 0;
 }
