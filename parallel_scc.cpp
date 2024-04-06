@@ -9,6 +9,7 @@
 
 char *file_path = nullptr;
 int thread_count = 1;
+std::string algo = "tarjan";
 
 /***************************************************************************
 **************   TRAJAN SEQUENTIAL IMPLEMENTATION   ************************
@@ -358,7 +359,7 @@ void printScc(std::vector<std::vector<int>> sccs){
 
 int main(int argc, char** argv){
     int opt;
-    while((opt = getopt(argc, argv, "f:t:")) != - 1){
+    while((opt = getopt(argc, argv, "f:t:m:")) != - 1){
         switch (opt){
             case 'f': {
                 file_path = optarg;
@@ -367,6 +368,11 @@ int main(int argc, char** argv){
 
             case 't': {
                 sscanf(optarg, "%d", &thread_count);
+                break;
+            }
+
+            case 'm': {
+                algo = std::string(optarg);
                 break;
             }
 
@@ -389,12 +395,35 @@ int main(int argc, char** argv){
             file_path, 
             thread_count);
 
+    if(algo == "tarjan"){
+        TrajanSeq method;
+        method.readGraph(file_path);
+        method.initValues();
+        method.findScc();
+        method.freeValues();
+        auto sccs = method.getSccs();
+        printf("scc count: %ld\n", sccs.size());
+    }else if(algo == "fb"){
+        FB method;
+        method.readGraph(file_path);
+        method.initValues();
+    
+        std::vector<int> graph(method.num_nodes);
+        for(int i=0; i<method.num_nodes; i++){
+            graph[i] = i;
+        }
+
+        method.findScc(graph);
+        auto sccs = method.getSccs();
+        printf("scc count: %ld\n", sccs.size());
+    }
+
     // TODO: get argument for the method, and choose the class
-    TrajanSeq method;
-    method.readGraph(file_path);
-    method.initValues();
-    method.findScc();
-    method.freeValues();
+    // TrajanSeq method;
+    // method.readGraph(file_path);
+    // method.initValues();
+    // method.findScc();
+    // method.freeValues();
 
     // FB method;
     // method.readGraph(file_path);
@@ -406,10 +435,10 @@ int main(int argc, char** argv){
     // }
 
     // method.findScc(graph);
-    auto sccs = method.getSccs();
-    printScc(sccs);
+    // auto sccs = method.getSccs();
+    // printScc(sccs);
 
-    printf("scc count: %ld\n", sccs.size());
+    // printf("scc count: %ld\n", sccs.size());
 
     return 0;
 }
