@@ -312,32 +312,9 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                         union_graph.begin(), union_graph.end(),
                         std::back_inserter(graph3));
 
-    if(depth == 4){
-        #pragma omp parallel 
-        {
-            #pragma omp single 
-            {
-
-                #pragma omp task shared(graph1)
-                findScc(graph1, depth+1);
-
-                #pragma omp task shared(graph2)
-                findScc(graph2, depth+1);
-
-                #pragma omp task shared(graph2)
-                findScc(graph3, depth+1);  
-            }
-        }
-    }else{
-        findScc(graph1, depth+1);
-        findScc(graph2, depth+1);
-        findScc(graph3, depth+1);  
-    }
-
-    // findScc(graph1, depth+1);
-    // findScc(graph2, depth+1);
-    // findScc(graph3, depth+1); 
-
+    findScc(graph1, depth+1);
+    findScc(graph2, depth+1);
+    findScc(graph3, depth+1); 
 
     return;
 }
@@ -433,24 +410,7 @@ int main(int argc, char** argv){
         auto sccs = method.getSccs();
         printf("scc count: %ld\n", sccs.size());
     }
-
-    // TODO: get argument for the method, and choose the class
-    // TrajanSeq method;
-    // method.readGraph(file_path);
-    // method.initValues();
-    // method.findScc();
-    // method.freeValues();
-
-    // FB method;
-    // method.readGraph(file_path);
-    // method.initValues();
     
-    // std::vector<int> graph(method.num_nodes);
-    // for(int i=0; i<method.num_nodes; i++){
-    //     graph[i] = i;
-    // }
-
-    // method.findScc(graph);
     // auto sccs = method.getSccs();
     // printScc(sccs);
 
