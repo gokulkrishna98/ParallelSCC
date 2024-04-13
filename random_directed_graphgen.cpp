@@ -15,18 +15,20 @@ void generateRandomDirectedGraph(int numNodes, int numEdges) {
     uniform_int_distribution<int> dis(0, numNodes - 1);
 
     // Set to store generated edges
-    unordered_set<int> generatedEdges;
+    unordered_set<unsigned long long> generatedEdges;
 
     // Generate random edges
     for (int i = 0; i < numEdges; ++i) {
         int src = dis(gen);
         int dest = dis(gen);
+
+        unsigned long long edge_id = (unsigned long long)src * numNodes + dest;
         // Avoid self-loops and duplicate edges
-        while (dest == src || generatedEdges.count(src * numNodes + dest)) {
+        while (dest == src || generatedEdges.count(edge_id)) {
             src = dis(gen);
             dest = dis(gen);
         }
-        generatedEdges.insert(src * numNodes + dest);
+        generatedEdges.insert(edge_id);
         cout << src << " " << dest << endl;
     }
 }
