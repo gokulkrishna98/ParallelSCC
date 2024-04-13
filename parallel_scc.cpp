@@ -297,9 +297,11 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
     for(int i=0; i<graph.size(); i++){
         if(vis[graph[i]] == UNVISITED &&
            (in_degree(graph[i]) == 0 || out_degree(graph[i]) == 0)){
-            vis[graph[i]] = 1;
             #pragma omp critical
-            sccs.push_back({graph[i]});
+            {
+                vis[graph[i]] = 1;
+                sccs.push_back({graph[i]});
+            }
         }
     }
     // graph - trim
@@ -331,11 +333,14 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                           std::back_inserter(scc));
     
     // CRITICAL SECTION
-    for(auto it: scc){
-        vis[it] = 1;
-    }
-    if(!scc.empty()){
-        sccs.push_back(scc);
+    #pragma omp critical
+    {
+        for(auto it: scc){
+            vis[it] = 1;
+        }
+        if(!scc.empty()){
+            sccs.push_back(scc);
+        }
     }
 
     std::set_union(fw.begin(), fw.end(),
@@ -352,9 +357,29 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                         std::back_inserter(graph3));
 
     // try to implement working queue (producer-consumer method)
-    findScc(graph1, depth+1);
-    findScc(graph2, depth+1);
-    findScc(graph3, depth+1); 
+    if(depth == 0){
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                findScc(graph1, depth+1);
+            }
+
+            #pragma omp section
+            {
+                findScc(graph2, depth+1);
+            }
+
+            #pragma omp section
+            {
+                findScc(graph3, depth+1);   
+            }
+        }
+    }else{
+        findScc(graph1, depth+1);
+        findScc(graph2, depth+1);
+        findScc(graph3, depth+1);   
+    }
     return;
 }
 
@@ -440,7 +465,7 @@ int main(int argc, char** argv){
         for(int i=0; i<method.num_nodes; i++){
             graph[i] = i;
         }
-        method.findScc(graph);
+        method.findScc(graph, 0);
         auto sccs = method.getSccs();
         printf("scc count: %ld\n", sccs.size());
     }
