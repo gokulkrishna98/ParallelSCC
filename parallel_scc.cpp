@@ -154,7 +154,7 @@ public:
     std::set<int> bfs(std::vector<std::vector<int>> &g, int x, std::vector<int> &v);
     std::set<int> parallel_bfs(std::vector<std::vector<int>> &g, int x, std::vector<int> &v);
     std::set<int> dfs(std::vector<std::vector<int>> &g, int x, std::vector<int> &v);
-    void findScc(std::vector<int> &graph, int depth);
+    void findScc(std::vector<int> &graph);
 
     int in_degree(int x);
     int out_degree(int x);
@@ -257,27 +257,21 @@ std::set<int> FB::parallel_bfs(std::vector<std::vector<int>> &g, int x, std::vec
     q.push(x);
     ans.insert(x);
 
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            while(!q.empty()){
-                int node = q.front(); q.pop();
-                #pragma omp parallel for num_threads(thread_count)
-                for(int i=0; i<g[node].size(); i++){
-                    if(v[g[node][i]] == UNVISITED){
-                        v[g[node][i]] = 1;
-                        #pragma omp critical
-                        {
-                            ans.insert(g[node][i]);
-                            q.push(g[node][i]);
-                        }
-                    }
+    while(!q.empty()){
+        int node = q.front(); q.pop();
+        #pragma omp parallel for num_threads(thread_count)
+        for(int i=0; i<g[node].size(); i++){
+            if(v[g[node][i]] == UNVISITED){
+                v[g[node][i]] = 1;
+                #pragma omp critical
+                {
+                    ans.insert(g[node][i]);
+                    q.push(g[node][i]);
                 }
             }
         }
+    }
 
-    } 
     return ans;
 }
 
@@ -290,7 +284,7 @@ void print_graph(std::vector<int> g, std::string name){
     return;
 }
 
-void FB::findScc(std::vector<int> &graph, int depth = 0){
+void FB::findScc(std::vector<int> &graph){
     int index = sccs.size();
 
     // --------------- TRIM -----------------------------------------
@@ -322,14 +316,8 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
 
     std::set<int> fw, bw;
     // these two can be done parallely
-    #pragma omp parallel sections
-    {
-        #pragma omp section
-        fw = bfs(forward, x, fvis);
-
-        #pragma omp section
-        bw = bfs(backward, x, bvis);
-    }
+    fw = bfs(forward, x, fvis);
+    bw = bfs(backward, x, bvis);
 
     // auto fw = parallel_bfs(forward, x, fvis);
     // auto bw = parallel_bfs(backward, x, bvis);
@@ -362,9 +350,9 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                         std::back_inserter(graph3));
 
     // try to implement working queue (producer-consumer method)
-    findScc(graph1, depth+1);
-    findScc(graph2, depth+1);
-    findScc(graph3, depth+1);   
+    findScc(graph1);
+    findScc(graph2);
+    findScc(graph3);   
     return;
 }
 
@@ -456,7 +444,7 @@ int main(int argc, char** argv){
         for(int i=0; i<method.num_nodes; i++){
             graph[i] = i;
         }
-        method.findScc(graph, 0);
+        method.findScc(graph);
         auto sccs = method.getSccs();
         printf("scc count: %ld\n", sccs.size());
     }
