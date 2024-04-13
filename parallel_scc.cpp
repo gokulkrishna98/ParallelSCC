@@ -316,11 +316,13 @@ void FB::findScc(std::vector<int> &graph){
 
     std::set<int> fw, bw;
     // these two can be done parallely
-    fw = bfs(forward, x, fvis);
-    bw = bfs(backward, x, bvis);
-
-    // auto fw = parallel_bfs(forward, x, fvis);
-    // auto bw = parallel_bfs(backward, x, bvis);
+    if(use_parallel_bfs){
+        fw = parallel_bfs(forward, x, fvis);
+        bw = parallel_bfs(backward, x, bvis);
+    }else{        
+        fw = bfs(forward, x, fvis);
+        bw = bfs(backward, x, bvis);
+    }
 
     // --------------------------- PARTITIONING --------------------
     std::vector<int> scc, graph1, graph2, graph3, union_graph;
