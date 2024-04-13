@@ -10,6 +10,7 @@
 char *file_path = nullptr;
 int thread_count = 1;
 std::string algo = "tarjan";
+bool use_parallel_bfs = false;
 
 /***************************************************************************
 **************   TRAJAN SEQUENTIAL IMPLEMENTATION   ************************
@@ -319,9 +320,16 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
     std::vector<int> fvis = vis;
     std::vector<int> bvis = vis;
 
+    std::set<int> fw, bw;
     // these two can be done parallely
-    auto fw = bfs(forward, x, fvis);
-    auto bw = bfs(backward, x, bvis);
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        fw = bfs(forward, x, fvis);
+
+        #pragma omp section
+        bw = bfs(backward, x, bvis);
+    }
 
     // auto fw = parallel_bfs(forward, x, fvis);
     // auto bw = parallel_bfs(backward, x, bvis);
@@ -333,14 +341,11 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                           std::back_inserter(scc));
     
     // CRITICAL SECTION
-    #pragma omp critical
-    {
-        for(auto it: scc){
-            vis[it] = 1;
-        }
-        if(!scc.empty()){
-            sccs.push_back(scc);
-        }
+    for(auto it: scc){
+        vis[it] = 1;
+    }
+    if(!scc.empty()){
+        sccs.push_back(scc);
     }
 
     std::set_union(fw.begin(), fw.end(),
@@ -357,29 +362,9 @@ void FB::findScc(std::vector<int> &graph, int depth = 0){
                         std::back_inserter(graph3));
 
     // try to implement working queue (producer-consumer method)
-    if(depth == 0){
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            {
-                findScc(graph1, depth+1);
-            }
-
-            #pragma omp section
-            {
-                findScc(graph2, depth+1);
-            }
-
-            #pragma omp section
-            {
-                findScc(graph3, depth+1);   
-            }
-        }
-    }else{
-        findScc(graph1, depth+1);
-        findScc(graph2, depth+1);
-        findScc(graph3, depth+1);   
-    }
+    findScc(graph1, depth+1);
+    findScc(graph2, depth+1);
+    findScc(graph3, depth+1);   
     return;
 }
 
@@ -413,7 +398,7 @@ void printScc(std::vector<std::vector<int>> sccs){
 
 int main(int argc, char** argv){
     int opt;
-    while((opt = getopt(argc, argv, "f:t:m:")) != - 1){
+    while((opt = getopt(argc, argv, "f:t:m:b")) != - 1){
         switch (opt){
             case 'f': {
                 file_path = optarg;
@@ -429,6 +414,12 @@ int main(int argc, char** argv){
                 algo = std::string(optarg);
                 break;
             }
+
+            case 'b': {
+                use_parallel_bfs = true;
+                break;
+            }
+
 
             case '?' : {
                 if (isprint (optopt))
