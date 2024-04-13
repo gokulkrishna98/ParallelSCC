@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include <unordered_set>
 
 using namespace std;
 
@@ -13,33 +14,26 @@ void generateRandomDirectedGraph(int numNodes, int numEdges) {
     mt19937 gen(rd());
     uniform_int_distribution<int> dis(0, numNodes - 1);
 
-    // Vector to store whether an edge between two nodes exists
-    vector<vector<bool>> edges(numNodes, vector<bool>(numNodes, false));
+    // Set to store generated edges
+    unordered_set<int> generatedEdges;
 
     // Generate random edges
     for (int i = 0; i < numEdges; ++i) {
         int src = dis(gen);
         int dest = dis(gen);
-        // Avoid self-loops
-        while (dest == src) {
-            dest = dis(gen);
-        }
-        // Avoid duplicate edges
-        while (edges[src][dest]) {
+        // Avoid self-loops and duplicate edges
+        while (dest == src || generatedEdges.count(src * numNodes + dest)) {
             src = dis(gen);
             dest = dis(gen);
-            while (dest == src) {
-                dest = dis(gen);
-            }
         }
-        edges[src][dest] = true;
+        generatedEdges.insert(src * numNodes + dest);
         cout << src << " " << dest << endl;
     }
 }
 
 int main() {
     int numNodes = 100000; // Change this to adjust the number of nodes
-    int numEdges = 50000; // Change this to adjust the number of edges
+    int numEdges = 100000; // Change this to adjust the number of edges
     generateRandomDirectedGraph(numNodes, numEdges);
     return 0;
 }
